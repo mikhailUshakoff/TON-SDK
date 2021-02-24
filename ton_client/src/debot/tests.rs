@@ -810,8 +810,13 @@ async fn test_debot_sdk_interface() {
             format!("test substring2 passed"),
             format!("test mnemonicDeriveSignKeys passed"),
             format!("test genRandom passed"),
+            format!("test naclKeypairFromSecret passed"),
             format!("test mnemonic passed"),
             format!("test account passed"),
+            format!("test naclbox passed"),
+            format!("test naclboxopen passed"),
+            format!("test base64 encode-decode passed"),
+            format!("test hex encode-decode passed"),
             format!("test hdkeyXprv passed"),
         ],
     ).await;

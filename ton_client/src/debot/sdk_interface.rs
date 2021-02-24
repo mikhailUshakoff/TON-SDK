@@ -211,6 +211,28 @@ const ABI: &str = r#"
 			"outputs": [
 				{"name":"substr","type":"bytes"}
 			]
+        },
+        {
+			"name": "encode",
+			"inputs": [
+				{"name":"answerId","type":"uint32"},
+				{"name":"data","type":"bytes"},
+				{"name":"encoding","type":"uint8"}
+			],
+			"outputs": [
+				{"name":"encoded","type":"bytes"}
+			]
+		},
+		{
+			"name": "decode",
+			"inputs": [
+				{"name":"answerId","type":"uint32"},
+				{"name":"data","type":"bytes"},
+				{"name":"encoding","type":"uint8"}
+			],
+			"outputs": [
+				{"name":"decoded","type":"bytes"}
+			]
 		},
 		{
 			"name": "constructor",
@@ -438,6 +460,59 @@ impl SdkInterface {
         ))
 
     }
+
+    fn encode(&self, args: &Value) -> InterfaceResult {
+        let encoding = get_num_arg::<u8>(args, "encoding")?;
+        match encoding {
+            0 => self.encode_base64(args),
+            1 => self.encode_hex(args),
+            _ => Err(format!("Unsupported encoding format - {}", encoding)),
+        }
+    }
+
+    fn encode_base64(&self, args: &Value) -> InterfaceResult {
+        let answer_id = decode_answer_id(args)?;
+        let data_to_encode = hex::decode(&get_arg(args, "data")?).map_err(|e| format!("{}", e))?;
+        let encoded = base64::encode(&data_to_encode);
+        Ok((
+            answer_id,
+            json!({ "encoded": hex::encode(encoded.as_bytes()) }),
+        ))
+    }
+
+    fn encode_hex(&self, args: &Value) -> InterfaceResult {
+        let answer_id = decode_answer_id(args)?;
+        let encoded = get_arg(args, "data")?;
+        Ok((
+            answer_id,
+            json!({ "encoded": hex::encode(encoded.as_bytes()) }),
+        ))
+    }
+
+    fn decode(&self, args: &Value) -> InterfaceResult {
+        let encoding = get_num_arg::<u8>(args, "encoding")?;
+        match encoding {
+            0 => self.decode_base64(args),
+            1 => self.decode_hex(args),
+            _ => Err(format!("Unsupported encoding format - {}", encoding)),
+        }
+    }
+
+    fn decode_base64(&self, args: &Value) -> InterfaceResult {
+        let answer_id = decode_answer_id(args)?;
+        let str_to_decode =hex::decode(&get_arg(args, "data")?).map_err(|e| format!("{}", e))?;
+        let decoded =
+            base64::decode(&str_to_decode).map_err(|e| format!("invalid base64: {}", e))?;
+        Ok((answer_id, json!({ "decoded": hex::encode(&decoded) })))
+    }
+
+    fn decode_hex(&self, args: &Value) -> InterfaceResult {
+        let answer_id = decode_answer_id(args)?;
+        let str_to_decode = hex::decode(&get_arg(args, "data")?).map_err(|e| format!("{}", e))?;
+        let decoded =
+            hex::decode(&str_to_decode).map_err(|e| format!("invalid hex: {}", e))?;
+        Ok((answer_id, json!({ "decoded": hex::encode(&decoded) })))
+    }
 }
 
 #[async_trait::async_trait]
@@ -466,6 +541,8 @@ impl DebotInterface for SdkInterface {
             "hdkeyPublicFromXprv" => self.hdkey_public_from_xprv(args),
             "naclSignKeypairFromSecretKey" => self.nacl_sign_keypair_from_secret_key(args),
             "substring" => self.substring(args),
+            "encode" => self.encode(args),
+            "decode" => self.decode(args),
             _ => Err(format!("function \"{}\" is not implemented", func)),
         }
     }
